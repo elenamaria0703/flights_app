@@ -1,0 +1,7 @@
+{
+  "name": "flights-app",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react"
+}
