@@ -1,9 +1,10 @@
-import {useState,useEffect, useReducer, ReactPropTypes, useCallback} from 'react';
+import {useState,useEffect, useReducer, ReactPropTypes, useCallback, useContext} from 'react';
 import Flight from './Flight';
 import {FlightProps} from './FlightProps'
-import {createFlight, getFlights, updateFlight,newWebSocket} from './flightApi'
+import {createFlight, getFlightsPage, getFlights,updateFlight,newWebSocket} from './flightApi'
 import React from 'react';
 import PropTypes from 'prop-types';
+import { AuthContext } from '../auth';
 
 type SaveFlightFn = (flight : FlightProps) => Promise<any>;
 
@@ -14,16 +15,19 @@ export interface FlightsState{
     saving: boolean,
     savingError?: Error | null,
     saveFlight?: SaveFlightFn,
+    page: string 
 }
 
 interface ActionProps{
     type: string,
-    playload?: any,
+    payload?: any,
 }
 
 const initialState: FlightsState = {
+    fetchingError:null,
     fetching: false,
     saving: false,
+    page: "1"
 };
 const FETCH_FLIGHTS_STARTED = 'FETCH_FLIGHTS_STARTED';
 const FETCH_FLIGHTS_SUCCEEDED = 'FETCH_FLIGHTS_SUCCEEDED';
@@ -33,20 +37,20 @@ const SAVE_FLIGHT_SUCCEEDED = 'SAVE_FLIGHT_SUCCEEDED';
 const SAVE_FLIGHT_FAILED = 'SAVE_FLIGHT_FAILED';
 
 const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
-    (state, {type,playload}) => {
+    (state, {type,payload}) => {
         switch(type){
             case FETCH_FLIGHTS_STARTED:
                 return {...state, fetching:true};
             case FETCH_FLIGHTS_SUCCEEDED:
-                return {...state, flights:playload.flights, fetching:false};
+                return {...state, flights:payload.flights, fetching:false};
             case FETCH_FLIGHTS_FAILED:
-                return {...state, fetchingError:playload.error, fetching: false};
+                return {...state, fetchingError:payload.error, fetching: false};
             case SAVE_FLIGHT_STARTED:
                 return {...state, savingError: null, saving:true};
             case SAVE_FLIGHT_SUCCEEDED:
                 const flights=[...(state.flights || [])]
-                const flight=playload.flight;
-                const index=flights.findIndex(fl=>fl.id===flight.id);
+                const flight=payload.flight;
+                const index=flights.findIndex(fl=>fl._id===flight._id);
                 if(index === -1){
                     flights.splice(0,0,flight);
                 }else{
@@ -54,7 +58,7 @@ const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
                 }
                 return {...state,flights,saving:false};
             case SAVE_FLIGHT_FAILED:
-                return {...state,savingError:playload.error,saving:false}
+                return {...state,savingError:payload.error,saving:false}
             default:
                 return state;
         }
@@ -66,15 +70,16 @@ interface FlightProviderProps{
     children: PropTypes.ReactNodeLike,
 }
 export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
+    const { token } = useContext(AuthContext);
     const [state, dispatch] = useReducer(reducer, initialState)
 
-    const {flights, fetching, fetchingError,saving,savingError}= state;
+    const {flights, fetching, fetchingError,saving,savingError,page}= state;
 
-    useEffect(getFlightsEffect, []);
-    useEffect(wsEffect,[]);
+    useEffect(getFlightsEffect, [token,page]);
+    useEffect(wsEffect,[token]);
 
-    const saveFlight=useCallback<SaveFlightFn>(saveFlightCallback,[]);
-    const value={flights, fetching, fetchingError,saving,savingError,saveFlight}
+    const saveFlight=useCallback<SaveFlightFn>(saveFlightCallback,[token]);
+    const value={page,flights, fetching, fetchingError,saving,savingError,saveFlight}
 
     return (
         <FlightContext.Provider value={value}>
@@ -90,12 +95,14 @@ export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
         async function fetchFlights(){
             try{
                 dispatch({type:FETCH_FLIGHTS_STARTED});
-                const flights=await getFlights();
+                //const flights=await getFlightsPage(token,page);
+                const flights=await getFlights(token);
+                //const nextPage= String(parseInt(page)+1);
                 if(!canceled){
-                   dispatch({type:FETCH_FLIGHTS_SUCCEEDED, playload: {flights}})
+                   dispatch({type:FETCH_FLIGHTS_SUCCEEDED, payload: {flights}});
                 }
             }catch(error){
-                dispatch({type:FETCH_FLIGHTS_FAILED, playload:{error}})
+                dispatch({type:FETCH_FLIGHTS_FAILED, payload:{error}})
             }
         }
     }
@@ -103,27 +110,32 @@ export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
     async function saveFlightCallback(flight : FlightProps){
         try{
             dispatch({type:SAVE_FLIGHT_STARTED});
-            const savedFlight= await (flight.id? updateFlight(flight):createFlight(flight));
-            dispatch({type:SAVE_FLIGHT_SUCCEEDED,playload:{flight: savedFlight}})
+            const savedFlight= await (flight._id? updateFlight(token,flight):createFlight(token,flight));
+            dispatch({type:SAVE_FLIGHT_SUCCEEDED,payload:{flight: savedFlight}})
         }catch(error){
-            dispatch({type:SAVE_FLIGHT_FAILED, playload:{error}})
+            dispatch({type:SAVE_FLIGHT_FAILED, payload:{error}})
         }
     }
 
-    function wsEffect(){
+    function wsEffect() {
         let canceled = false;
-        const closeWebSocket = newWebSocket(message => {
+      
+        let closeWebSocket: () => void;
+        if (token?.trim()) {
+          closeWebSocket = newWebSocket(token, message => {
             if (canceled) {
-                return;
+              return;
             }
-            const { event, payload: { flight }} = message;
-            if (event === 'created' || event === 'updated') {
-                dispatch({ type: SAVE_FLIGHT_SUCCEEDED, playload: { flight } });
+            const { type, payload: flight } = message;
+         
+            if (type === 'created' || type === 'updated') {
+              dispatch({ type: SAVE_FLIGHT_SUCCEEDED, payload: { flight } });
             }
-        });
-        return () => {
-            canceled = true;
-            closeWebSocket();
+          });
         }
-    }
+        return () => {
+          canceled = true;
+          closeWebSocket?.();
+        }
+      }
 };

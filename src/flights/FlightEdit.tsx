@@ -5,6 +5,7 @@ import {
   IonContent,
   IonHeader,
   IonInput,
+  IonLabel,
   IonLoading,
   IonPage,
   IonTitle,
@@ -26,7 +27,7 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
     const [flight, setFlight] = useState<FlightProps>();
     useEffect(() => {
       const routeId = match.params.id || '';
-      const flight = flights?.find(fl => fl.id === routeId);
+      const flight = flights?.find(fl => fl._id === routeId);
       setFlight(flight);
       if (flight) {
         setRoute(flight.route);
@@ -51,8 +52,12 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
           </IonToolbar>
         </IonHeader>
         <IonContent>
-          <IonInput value={route} onIonChange={e => setRoute(e.detail.value || '')} />
-          <IonInput value={soldout?'true':'false'} onIonChange={e => {if(e.detail.value==='true') setSoldout(true); else setSoldout(false)}}/>
+          <IonLabel>Route:
+            <IonInput value={route} onIonChange={e => setRoute(e.detail.value || '')} />
+          </IonLabel>
+          <IonLabel>Soldout:
+            <IonInput value={soldout?'true':'false'} onIonChange={e => {if(e.detail.value==='true') setSoldout(true); else setSoldout(false)}}/>
+          </IonLabel>
           <IonLoading isOpen={saving} />
           {savingError && (
             <div>{savingError.message || 'Failed to save item'}</div>

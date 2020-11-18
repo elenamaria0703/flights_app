@@ -1,6 +1,6 @@
 
 export interface FlightProps{
-    id?: string;
+    _id?: string;
     route: string;
     date: Date;
     soldout: boolean;

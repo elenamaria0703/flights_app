@@ -1,63 +1,46 @@
 import axios from 'axios';
-import { getLogger } from '../core';
-import Flight from './Flight';
+import { authConfig, baseUrl, getLogger, withLogs } from '../core';
 import { FlightProps } from './FlightProps';
 
-const baseUrl='localhost:3000';
-const flightsUrl=`http://${baseUrl}/flights`;
-const flightUrl=`http://${baseUrl}/flight`;
-const log = getLogger('flightApi');
-const config = {
-    headers: {
-        'Content-Type':'application/json'
-    }
-};
-interface ResponseProps<T> {
-    data: T;
-  }
-  
-  function withLogs<T>(promise: Promise<ResponseProps<T>>, fnName: string): Promise<T> {
-    log(`${fnName} - started`);
-    return promise
-      .then(res => {
-        log(`${fnName} - succeeded`);
-        return Promise.resolve(res.data);
-      })
-      .catch(err => {
-        log(`${fnName} - failed`);
-        return Promise.reject(err);
-      });
-  }
+const flightUrl = `http://${baseUrl}/api/flight`;
 
-export const getFlights: () => Promise<FlightProps[]> = () => {
-    return withLogs(axios.get(flightsUrl,config),'getFlights');
+export const getFlights: (token: string) => Promise<FlightProps[]> = token => {
+  console.log(token);
+  return withLogs(axios.get(flightUrl, authConfig(token)), 'getFlights');
 }
 
-export const createFlight: (flight: FlightProps) => Promise<FlightProps[]> = flight =>{
-    return withLogs(axios.post(flightUrl,flight,config),'createFlight');
+export const getFlightsPage: (token: string,page:string) => Promise<FlightProps[]> = (token,page) => {
+  console.log(token);
+  return withLogs(axios.get(`${flightUrl}/${page}`, authConfig(token)), 'getFlights');
 }
 
-export const updateFlight: (flight: FlightProps) => Promise<FlightProps[]> = flight =>{
-    return withLogs(axios.put(`${flightUrl}/${flight.id}`,flight,config),'updateFlight');
+export const createFlight: (token: string, flight: FlightProps) => Promise<FlightProps[]> = (token, flight) => {
+  return withLogs(axios.post(flightUrl, flight, authConfig(token)), 'createFlight');
 }
 
-interface MessageData{
-  event: string;
-  payload:{
-    flight: FlightProps;
-  };
+export const updateFlight: (token: string, flight: FlightProps) => Promise<FlightProps[]> = (token, flight) => {
+  console.log(token);
+  return withLogs(axios.put(`${flightUrl}/${flight._id}`, flight, authConfig(token)), 'updateFlight');
 }
 
-export const newWebSocket = (onMessage: (data: MessageData)=>void)=>{
-  const ws = new WebSocket(`ws://${baseUrl}`)
+interface MessageData {
+  type: string;
+  payload: FlightProps;
+}
+
+const log = getLogger('ws');
+
+export const newWebSocket = (token: string, onMessage: (data: MessageData) => void) => {
+  const ws = new WebSocket(`ws://${baseUrl}`);
   ws.onopen = () => {
     log('web socket onopen');
+    ws.send(JSON.stringify({ type: 'authorization', payload: { token } }));
   };
   ws.onclose = () => {
     log('web socket onclose');
   };
   ws.onerror = error => {
-    log('web socket onerror');
+    log('web socket onerror', error);
   };
   ws.onmessage = messageEvent => {
     log('web socket onmessage');
