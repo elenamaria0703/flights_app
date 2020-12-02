@@ -5,15 +5,20 @@ import { login as loginApi } from './authApi';
 import {TokenStorage} from '../storage';
 import Flight from '../flights/Flight';
 
+
 const log = getLogger('AuthProvider');
 
 type LoginFn = (username?: string, password?: string) => void;
+type TokenFn = (token: string) => void;
+type AuthenticatedFn = () => void;
 
 export interface AuthState {
   authenticationError: Error | null;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
   login?: LoginFn;
+  setToken?: TokenFn;
+  setAuthenticated?: AuthenticatedFn;
   pendingAuthentication?: boolean;
   username?: string;
   password?: string;
@@ -38,8 +43,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, setState] = useState<AuthState>(initialState);
   const { isAuthenticated, isAuthenticating, authenticationError, pendingAuthentication, token } = state;
   const login = useCallback<LoginFn>(loginCallback, []);
+  const setToken = useCallback<TokenFn>(tokenCallback, []);
+  const setAuthenticated = useCallback<AuthenticatedFn>(authCallback, []);
   useEffect(authenticationEffect, [pendingAuthentication]);
-  const value = { isAuthenticated, login, isAuthenticating, authenticationError, token };
+  const value = { isAuthenticated, login, isAuthenticating, authenticationError, token, setToken, setAuthenticated };
   log('render');
   return (
     <AuthContext.Provider value={value}>
@@ -55,6 +62,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       username,
       password
     });
+  }
+
+  function tokenCallback(token: string): void{
+    setState({...state,token});
+  }
+
+  function authCallback() :void{
+    setState({...state, isAuthenticated:true});
   }
 
   function authenticationEffect() {

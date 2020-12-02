@@ -26,6 +26,7 @@ import './theme/variables.css';
 import { FlightProvider } from './flights/FlightProvider';
 import { Login } from './auth/Login';
 import { AuthProvider, PrivateRoute } from './auth';
+import FilterFlights from './flights/FilterFlights';
 
 
 const App: React.FC = () => (
@@ -38,6 +39,7 @@ const App: React.FC = () => (
               <PrivateRoute path="/flights" component={FlightList} exact={true} />
               <PrivateRoute path="/flight" component={FlightEdit} exact={true}/>
               <PrivateRoute path="/flight/:id" component={FlightEdit} exact={true} />
+              <PrivateRoute path="/filter" component={FilterFlights} exact={true}/>
             </FlightProvider>
             <Route exact path="/" render={() => <Redirect to="/flights"/>}/>
           </AuthProvider>

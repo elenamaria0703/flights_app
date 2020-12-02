@@ -1,1 +1,1 @@
-export {TokenStorage} from './FlightStorage';
+export {TokenStorage, GetTokenStorage, isTokenSet} from './FlightStorage';

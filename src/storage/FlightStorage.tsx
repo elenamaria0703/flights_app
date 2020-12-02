@@ -9,7 +9,24 @@ export  function TokenStorage(token: string){
     })();
 }
 
+export function isTokenSet() : Promise<boolean>{
+    return (async () => {
+        const res = await Storage.get({ key: 'token' });
+        if (res.value) {
+            return true;
+        }
+        return false;
+    })();
+}
+
 export  function GetTokenStorage(){
+    (async () => {
+        const res = await Storage.get({ key: 'token' });
+        if (res.value) {
+            return res.value;
+        }
+    })();
 
 }
+
 

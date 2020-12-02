@@ -1,10 +1,13 @@
-import {useState,useEffect, useReducer, ReactPropTypes, useCallback, useContext} from 'react';
+import {useState,useEffect, useReducer, useCallback, useContext} from 'react';
 import Flight from './Flight';
 import {FlightProps} from './FlightProps'
-import {createFlight, getFlightsPage, getFlights,updateFlight,newWebSocket} from './flightApi'
+import {createFlight, getFlights,updateFlight,newWebSocket} from './flightApi'
 import React from 'react';
 import PropTypes from 'prop-types';
 import { AuthContext } from '../auth';
+import { Plugins } from '@capacitor/core';
+import { useNetwork } from '../network/useNetwork';
+const { Storage } = Plugins;
 
 type SaveFlightFn = (flight : FlightProps) => Promise<any>;
 
@@ -15,7 +18,6 @@ export interface FlightsState{
     saving: boolean,
     savingError?: Error | null,
     saveFlight?: SaveFlightFn,
-    page: string 
 }
 
 interface ActionProps{
@@ -27,7 +29,6 @@ const initialState: FlightsState = {
     fetchingError:null,
     fetching: false,
     saving: false,
-    page: "1"
 };
 const FETCH_FLIGHTS_STARTED = 'FETCH_FLIGHTS_STARTED';
 const FETCH_FLIGHTS_SUCCEEDED = 'FETCH_FLIGHTS_SUCCEEDED';
@@ -42,9 +43,20 @@ const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
             case FETCH_FLIGHTS_STARTED:
                 return {...state, fetching:true};
             case FETCH_FLIGHTS_SUCCEEDED:
+                let i=0;
+                payload.flights.forEach((flight: FlightProps)=>{
+                    (async() => {await Storage.set({
+                        key: 'flight'+ i.toString() ,
+                        value: JSON.stringify({
+                          route: flight.route, date: flight.date, soldout:flight.soldout
+                        })
+                      })})();
+                      i++;
+                
+                });
                 return {...state, flights:payload.flights, fetching:false};
             case FETCH_FLIGHTS_FAILED:
-                return {...state, fetchingError:payload.error, fetching: false};
+                return {...state, flights:payload.storage, fetching:false};
             case SAVE_FLIGHT_STARTED:
                 return {...state, savingError: null, saving:true};
             case SAVE_FLIGHT_SUCCEEDED:
@@ -58,6 +70,7 @@ const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
                 }
                 return {...state,flights,saving:false};
             case SAVE_FLIGHT_FAILED:
+                alert(payload.flight.route+" "+payload.flight.date+"\n"+payload.error)
                 return {...state,savingError:payload.error,saving:false}
             default:
                 return state;
@@ -72,14 +85,15 @@ interface FlightProviderProps{
 export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
     const { token } = useContext(AuthContext);
     const [state, dispatch] = useReducer(reducer, initialState)
+    const { networkStatus } = useNetwork();
+    
+    const {flights, fetching, fetchingError,saving,savingError}= state;
 
-    const {flights, fetching, fetchingError,saving,savingError,page}= state;
-
-    useEffect(getFlightsEffect, [token,page]);
+    useEffect(getFlightsEffect, [token]);
     useEffect(wsEffect,[token]);
 
     const saveFlight=useCallback<SaveFlightFn>(saveFlightCallback,[token]);
-    const value={page,flights, fetching, fetchingError,saving,savingError,saveFlight}
+    const value={flights, fetching, fetchingError,saving,savingError,saveFlight}
 
     return (
         <FlightContext.Provider value={value}>
@@ -95,25 +109,48 @@ export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
         async function fetchFlights(){
             try{
                 dispatch({type:FETCH_FLIGHTS_STARTED});
-                //const flights=await getFlightsPage(token,page);
-                const flights=await getFlights(token);
-                //const nextPage= String(parseInt(page)+1);
-                if(!canceled){
-                   dispatch({type:FETCH_FLIGHTS_SUCCEEDED, payload: {flights}});
+                if(token === ""){
+                        const res = await Storage.get({ key: 'token' });
+                        if (res.value) {
+                            const flights=await getFlights(res.value);
+                            if(!canceled){
+                                dispatch({type:FETCH_FLIGHTS_SUCCEEDED, payload: {flights}});
+                            }
+                        }
+                }
+                else{
+                    const flights=await getFlights(token);
+                    if(!canceled){
+                        dispatch({type:FETCH_FLIGHTS_SUCCEEDED, payload: {flights}});
+                     }
                 }
             }catch(error){
-                dispatch({type:FETCH_FLIGHTS_FAILED, payload:{error}})
+                let storage: FlightProps[]=[];
+                const { keys } = await Storage.keys();
+                const len=keys.length-1;
+                for(let i=0;i<len;i++){
+                    const res=await Storage.get({ key: 'flight'+i.toString() });
+                    if(res.value){
+                        storage.push(JSON.parse(res.value));
+                    }
+                }
+                dispatch({type:FETCH_FLIGHTS_FAILED, payload:{storage}})
             }
         }
     }
 
     async function saveFlightCallback(flight : FlightProps){
         try{
+            if(!networkStatus.connected)  throw new Error("This item could not be saved due to a network failure. Go back online.")
             dispatch({type:SAVE_FLIGHT_STARTED});
             const savedFlight= await (flight._id? updateFlight(token,flight):createFlight(token,flight));
             dispatch({type:SAVE_FLIGHT_SUCCEEDED,payload:{flight: savedFlight}})
         }catch(error){
-            dispatch({type:SAVE_FLIGHT_FAILED, payload:{error}})
+            await Storage.set({
+                key: 'save_flight'+flight.date,
+                value: JSON.stringify(flight)
+            });
+            dispatch({type:SAVE_FLIGHT_FAILED, payload:{error,flight}})
         }
     }
 

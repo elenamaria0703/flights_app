@@ -6,12 +6,12 @@ const flightUrl = `http://${baseUrl}/api/flight`;
 
 export const getFlights: (token: string) => Promise<FlightProps[]> = token => {
   console.log(token);
-  return withLogs(axios.get(flightUrl, authConfig(token)), 'getFlights');
+  return withLogs(axios.get(flightUrl, authConfig(token)), "Log in");
 }
 
-export const getFlightsPage: (token: string,page:string) => Promise<FlightProps[]> = (token,page) => {
+export const getFlightsPage: (token: string,page:string,filter:string) => Promise<FlightProps[]> = (token,page,filter) => {
   console.log(token);
-  return withLogs(axios.get(`${flightUrl}/${page}`, authConfig(token)), 'getFlights');
+  return withLogs(axios.get(`${flightUrl}/${filter}/${page}`, authConfig(token)), 'getFlights');
 }
 
 export const createFlight: (token: string, flight: FlightProps) => Promise<FlightProps[]> = (token, flight) => {
