@@ -5,4 +5,5 @@ export interface FlightProps{
     date: Date;
     soldout: boolean;
     version: number;
+    filename?: string;
 }

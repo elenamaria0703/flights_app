@@ -32,7 +32,8 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
     const [route,setRoute] = useState('');
     const [soldout,setSoldout]=useState(false);
     const [flight, setFlight] = useState<FlightProps>();
-   // const {photo, takePhoto,updatePhoto } = usePhotoGallery();
+    const {photo, takePhoto,updatePhoto } = usePhotoGallery();
+    const [filename, setFileName] = useState(new Date().getTime() + '.jpeg')
 
     useEffect(() => {
       const routeId = match.params.id || '';
@@ -42,11 +43,14 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
         setRoute(flight.route);
         setSoldout(flight.soldout);
       }
+      if(flight?.filename){
+        updatePhoto(flight.filename);
+      }
     }, [match.params.id, flights]);
 
     const handleSave = () => {
       const date=new Date(Date.now());
-      const editedFlight = flight ? { ...flight,route,soldout,version: flight.version+1} : {route,soldout,date,version:1};
+      const editedFlight = flight ? { ...flight,route,soldout,version: flight.version+1,filename} : {route,soldout,date,version:1,filename};
       saveFlight && saveFlight(editedFlight).then(() => history.goBack());
     };
 
@@ -69,14 +73,14 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
           <IonLabel>Soldout:
             <IonInput value={soldout?'true':'false'} onIonChange={e => {if(e.detail.value==='true') setSoldout(true); else setSoldout(false)}}/>
           </IonLabel>
-          {/* <IonCard style={{height:"200px",width:"200px"}}>
+          <IonCard style={{height:"200px",width:"200px"}}>
             <IonImg src={photo?.webviewPath}/>
           </IonCard>
           <IonFab vertical="bottom" horizontal="center" slot="fixed">
-          <IonFabButton onClick={() => takePhoto()}>
+          <IonFabButton onClick={() => takePhoto(filename)}>
             <IonIcon icon={camera}></IonIcon>
           </IonFabButton>
-          </IonFab> */}
+          </IonFab>
           <IonLoading isOpen={saving} />
           {savingError && (
             <div>{savingError.message || 'Failed to save item'}</div>

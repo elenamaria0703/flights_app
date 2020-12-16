@@ -12,20 +12,20 @@ export function usePhotoGallery() {
   const { getPhoto } = useCamera();
   const [photo, setPhoto] = useState<Photo>();
 
-  const takePhoto = async () => {
+  const takePhoto = async (fileName:string) => {
     const cameraPhoto = await getPhoto({
       resultType: CameraResultType.Uri,
       source: CameraSource.Camera,
       quality: 100
     });
-    const fileName = new Date().getTime() + '.jpeg';
+    //const fileName = new Date().getTime() + '.jpeg';
     const savedFileImage = await savePicture(cameraPhoto, fileName);
     setPhoto(savedFileImage);
   };
 
-  const updatePhoto= async() => {
+  const updatePhoto= async(filepath: string) => {
     let currentPhoto: Photo = {
-        filepath: "1608122536490.jpeg"
+        filepath: filepath
     };
     const file = await readFile({
         path: currentPhoto.filepath,

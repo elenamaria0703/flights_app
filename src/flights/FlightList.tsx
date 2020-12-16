@@ -99,7 +99,7 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                     <IonList>
                         {flights
                             .filter(flight => flight.route.indexOf(searchFlight) >= 0)
-                            .map(({_id,route,date,soldout,version}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} onEdit={id=>history.push(`/flight/${id}`)}/>)}
+                            .map(({_id,route,date,soldout,version,filename}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} filename={filename} onEdit={id=>history.push(`/flight/${id}`)}/>)}
                     </IonList>
                 )}
                 <IonFab vertical="bottom" horizontal="end" slot="fixed">
