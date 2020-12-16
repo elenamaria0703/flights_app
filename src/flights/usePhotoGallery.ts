@@ -2,7 +2,6 @@ import { useCamera } from '@ionic/react-hooks/camera';
 import { CameraPhoto, CameraResultType, CameraSource, FilesystemDirectory } from '@capacitor/core';
 import { base64FromPath, useFilesystem } from '@ionic/react-hooks/filesystem';
 import { useState } from 'react';
-import { cursorTo } from 'readline';
 
 export interface Photo {
     filepath: string;

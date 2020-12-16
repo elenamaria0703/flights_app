@@ -4,6 +4,8 @@ import { getLogger } from '../core';
 import { login as loginApi } from './authApi';
 import {TokenStorage} from '../storage';
 import Flight from '../flights/Flight';
+import { Plugins } from '@capacitor/core';
+const { Storage } = Plugins;
 
 
 const log = getLogger('AuthProvider');
@@ -47,6 +49,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const setAuthenticated = useCallback<AuthenticatedFn>(authCallback, []);
   useEffect(authenticationEffect, [pendingAuthentication]);
   const value = { isAuthenticated, login, isAuthenticating, authenticationError, token, setToken, setAuthenticated };
+  useEffect(()=>{
+    (async () => {const res = await Storage.get({ key: 'token' })
+        if (res.value) {
+          setState({...state,token:res.value, isAuthenticated: true})
+      }
+    })();
+  },[]);
   log('render');
   return (
     <AuthContext.Provider value={value}>
