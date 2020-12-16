@@ -1,28 +1,56 @@
-import { IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonLabel, IonList, IonLoading, IonPage, IonSearchbar,  IonTitle, IonToolbar } from '@ionic/react';
-import React, { useContext, useState } from 'react';
+import { IonAlert, IonButton, IonContent, IonFab, IonFabButton, IonHeader, IonIcon, IonLabel, IonList, IonLoading, IonModal, IonPage, IonSearchbar,  IonTitle, IonToolbar } from '@ionic/react';
+import React, { useContext, useEffect, useState } from 'react';
 import Flight from './Flight';
 import { add,arrowDownCircle } from 'ionicons/icons';
 import { FlightContext } from './FlightProvider';
 import { RouteComponentProps } from 'react-router';
 import { Plugins } from '@capacitor/core';
 import { useNetwork } from '../network/useNetwork';
-import { useBackgroundTask } from '../network/useBackgroundTask';
+
+import { FlightProps } from './FlightProps';
 const { Storage } = Plugins;
 
 const FlightList: React.FC<RouteComponentProps>=({history})=>{
-    const{flights,fetching,saveFlight}=useContext(FlightContext);
+    const{flights,fetching,savingError,flightNotSaved,saveFlight}=useContext(FlightContext);
     const [searchFlight, setSearchFlight] = useState<string>('');
     const { networkStatus } = useNetwork();
-    useBackgroundTask(() => new Promise(resolve => {
-        console.log('My Background Task');
-        resolve();
-    }));
+    const [showAlert, setShowAlert] = useState(false);
     function handleLogOut(){
         (async() => {await Storage.clear()})();
         // eslint-disable-next-line no-restricted-globals
         location.reload();
         //history.push('/login')
     }
+
+    useEffect(() => {
+        if(savingError?.message==="Version conflict"){
+            setShowAlert(true);
+        }
+    }, [savingError])
+
+    useEffect(() => {
+        if(networkStatus.connected)
+        { 
+            (async()=>{
+                try{
+                    const { keys } = await Storage.keys();
+                    let save_flights;
+                    if(keys.includes('save_flight')){
+                        const res = await Storage.get({ key: 'save_flight' });
+                        if(res.value){
+                            save_flights=JSON.parse(res.value);
+                            save_flights.forEach((f: FlightProps)=>{
+                                saveFlight?.(f);
+                            });
+                        }
+                    }
+                }finally{
+                    await Storage.remove({ key: 'save_flight' });
+                }
+                
+            })();   
+        }
+    }, [networkStatus, saveFlight])
     return(
         <IonPage>
             <IonHeader>
@@ -33,6 +61,34 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                 </IonToolbar>
             </IonHeader>
             <IonContent>
+                <IonAlert
+                     isOpen={showAlert}
+                     onDidDismiss={() => setShowAlert(false)}
+                     cssClass='my-custom-class'
+                     header={'Confirm!'}
+                     message={flightNotSaved?.route + "    "+savingError?.message}
+                     buttons={[
+                       {
+                         text: 'Discard Changes',
+                         role: 'cancel',
+                         cssClass: 'secondary',
+                         handler: () => {
+                            // eslint-disable-next-line no-restricted-globals
+                            location.reload();
+                         }
+                       },
+                       {
+                         text: 'Keep Changes',
+                         handler: () => {
+                           const newFlight=flightNotSaved;
+                           if(newFlight){
+                            newFlight.version=newFlight.version+1;
+                            saveFlight?.(newFlight);
+                           }
+                        }
+                       }
+                     ]}
+                />
                 <IonSearchbar
                     value={searchFlight}
                     debounce={1000}
@@ -43,7 +99,7 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                     <IonList>
                         {flights
                             .filter(flight => flight.route.indexOf(searchFlight) >= 0)
-                            .map(({_id,route,date,soldout}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} onEdit={id=>history.push(`/flight/${id}`)}/>)}
+                            .map(({_id,route,date,soldout,version}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} onEdit={id=>history.push(`/flight/${id}`)}/>)}
                     </IonList>
                 )}
                 <IonFab vertical="bottom" horizontal="end" slot="fixed">

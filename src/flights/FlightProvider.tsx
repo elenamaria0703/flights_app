@@ -18,6 +18,7 @@ export interface FlightsState{
     saving: boolean,
     savingError?: Error | null,
     saveFlight?: SaveFlightFn,
+    flightNotSaved?: FlightProps | null
 }
 
 interface ActionProps{
@@ -29,6 +30,7 @@ const initialState: FlightsState = {
     fetchingError:null,
     fetching: false,
     saving: false,
+    savingError: null,
 };
 const FETCH_FLIGHTS_STARTED = 'FETCH_FLIGHTS_STARTED';
 const FETCH_FLIGHTS_SUCCEEDED = 'FETCH_FLIGHTS_SUCCEEDED';
@@ -36,6 +38,7 @@ const FETCH_FLIGHTS_FAILED = 'FETCH_FLIGHTS_FAILED';
 const SAVE_FLIGHT_STARTED = 'SAVE_FLIGHT_STARTED';
 const SAVE_FLIGHT_SUCCEEDED = 'SAVE_FLIGHT_SUCCEEDED';
 const SAVE_FLIGHT_FAILED = 'SAVE_FLIGHT_FAILED';
+const CONFLICT_FLIGHT_SAVE = 'CONFLICT_FLIGHT_SAVE';
 
 const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
     (state, {type,payload}) => {
@@ -48,7 +51,7 @@ const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
                     (async() => {await Storage.set({
                         key: 'flight'+ i.toString() ,
                         value: JSON.stringify({
-                          route: flight.route, date: flight.date, soldout:flight.soldout
+                          route: flight.route, date: flight.date, soldout: flight.soldout, version: flight.version
                         })
                       })})();
                       i++;
@@ -70,8 +73,10 @@ const reducer: (state: FlightsState, action: ActionProps)=> FlightsState =
                 }
                 return {...state,flights,saving:false};
             case SAVE_FLIGHT_FAILED:
-                alert(payload.flight.route+" "+payload.flight.date+"\n"+payload.error)
-                return {...state,savingError:payload.error,saving:false}
+                alert(payload.flight.route + "  " + payload.error.message);
+                return {...state,saving:false}
+            case CONFLICT_FLIGHT_SAVE:
+                return {...state,savingError:payload.error,flightNotSaved:payload.flight,saving:false}
             default:
                 return state;
         }
@@ -87,13 +92,13 @@ export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
     const [state, dispatch] = useReducer(reducer, initialState)
     const { networkStatus } = useNetwork();
     
-    const {flights, fetching, fetchingError,saving,savingError}= state;
+    const {flights, fetching, fetchingError,saving,savingError,flightNotSaved}= state;
 
     useEffect(getFlightsEffect, [token]);
     useEffect(wsEffect,[token]);
 
-    const saveFlight=useCallback<SaveFlightFn>(saveFlightCallback,[token]);
-    const value={flights, fetching, fetchingError,saving,savingError,saveFlight}
+    const saveFlight=useCallback<SaveFlightFn>(saveFlightCallback,[token,networkStatus]);
+    const value={flights, fetching, fetchingError,saving,savingError,saveFlight,flightNotSaved}
 
     return (
         <FlightContext.Provider value={value}>
@@ -141,16 +146,49 @@ export const FlightProvider: React.FC<FlightProviderProps>=({children})=>{
 
     async function saveFlightCallback(flight : FlightProps){
         try{
-            if(!networkStatus.connected)  throw new Error("This item could not be saved due to a network failure. Go back online.")
-            dispatch({type:SAVE_FLIGHT_STARTED});
-            const savedFlight= await (flight._id? updateFlight(token,flight):createFlight(token,flight));
-            dispatch({type:SAVE_FLIGHT_SUCCEEDED,payload:{flight: savedFlight}})
+            if(networkStatus.connected) {
+                if(token === ""){
+                    const res = await Storage.get({ key: 'token' });
+                    if (res.value) {
+                        dispatch({type:SAVE_FLIGHT_STARTED});
+                        const savedFlight= await (flight._id? updateFlight(res.value,flight,false):createFlight(res.value,flight));
+                        dispatch({type:SAVE_FLIGHT_SUCCEEDED,payload:{flight: savedFlight}});
+                    }
+                }else{
+                    dispatch({type:SAVE_FLIGHT_STARTED});
+                    const savedFlight= await (flight._id? updateFlight(token,flight,false):createFlight(token,flight));
+                    dispatch({type:SAVE_FLIGHT_SUCCEEDED,payload:{flight: savedFlight}});
+                }
+                
+            } else{
+                throw new Error("This item could not be saved due to a network failure.Go back online!");
+            }
+           
         }catch(error){
-            await Storage.set({
-                key: 'save_flight'+flight.date,
-                value: JSON.stringify(flight)
-            });
-            dispatch({type:SAVE_FLIGHT_FAILED, payload:{error,flight}})
+            if(error.message==="This item could not be saved due to a network failure.Go back online!"){
+                const { keys } = await Storage.keys();
+                let save_flights;
+                if(keys.includes('save_flight')){
+                    const res = await Storage.get({ key: 'save_flight' });
+                    if(res.value){
+                        save_flights=JSON.parse(res.value);
+                        save_flights.push(flight);
+                    }
+                }
+                else{
+                    save_flights=[flight];
+                }
+                await Storage.set({
+                    key: 'save_flight',
+                    value: JSON.stringify(save_flights)
+                });
+                dispatch({type:SAVE_FLIGHT_FAILED, payload:{error,flight}})
+            }
+            else{
+                error.message="Version conflict";
+                dispatch({type:CONFLICT_FLIGHT_SAVE, payload:{error,flight}})
+            }
+            
         }
     }
 

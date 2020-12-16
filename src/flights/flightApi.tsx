@@ -18,9 +18,9 @@ export const createFlight: (token: string, flight: FlightProps) => Promise<Fligh
   return withLogs(axios.post(flightUrl, flight, authConfig(token)), 'createFlight');
 }
 
-export const updateFlight: (token: string, flight: FlightProps) => Promise<FlightProps[]> = (token, flight) => {
+export const updateFlight: (token: string, flight: FlightProps, saveChanges: boolean) => Promise<FlightProps[]> = (token, flight,saveChanges) => {
   console.log(token);
-  return withLogs(axios.put(`${flightUrl}/${flight._id}`, flight, authConfig(token)), 'updateFlight');
+  return withLogs(axios.put(`${flightUrl}/${flight._id}`, {flight, saveChanges}, authConfig(token)), 'updateFlight');
 }
 
 interface MessageData {

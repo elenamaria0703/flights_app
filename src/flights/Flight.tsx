@@ -5,7 +5,7 @@ import {FlightProps} from './FlightProps'
 interface FlightPropsExt extends FlightProps{
     onEdit: (_id?: string) => void;
 }
-const Flight: React.FC<FlightPropsExt>=({_id,route,date,soldout, onEdit})=>{
+const Flight: React.FC<FlightPropsExt>=({_id,route,date,soldout,version,onEdit})=>{
     const soldoutVar=soldout ? "true":"false";
     const dateVar=date.toString();
     return(

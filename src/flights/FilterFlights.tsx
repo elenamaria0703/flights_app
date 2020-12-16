@@ -80,7 +80,7 @@ const FilterFlights: React.FC<RouteComponentProps>=({history})=>{
                 {flights && (
                     <IonList>
                         {flights
-                            .map(({_id,route,date,soldout}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} onEdit={id=>history.push(`/flight/${id}`)}/>)}
+                            .map(({_id,route,date,soldout,version}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} onEdit={id=>history.push(`/flight/${id}`)}/>)}
                     </IonList>
                 )}
                 <IonInfiniteScroll threshold="100px" disabled={disableInfiniteScroll}

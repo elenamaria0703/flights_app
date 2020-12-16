@@ -2,8 +2,13 @@ import React, { useContext, useEffect, useState } from 'react';
 import {
   IonButton,
   IonButtons,
+  IonCard,
   IonContent,
+  IonFab,
+  IonFabButton,
   IonHeader,
+  IonIcon,
+  IonImg,
   IonInput,
   IonLabel,
   IonLoading,
@@ -15,6 +20,8 @@ import { getLogger } from '../core';
 import { FlightContext } from './FlightProvider';
 import { RouteComponentProps } from 'react-router';
 import { FlightProps } from './FlightProps';
+import { camera } from 'ionicons/icons';
+import { usePhotoGallery } from './usePhotoGallery';
 
 interface FlightEditProps extends RouteComponentProps<{
     id?: string;
@@ -25,6 +32,8 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
     const [route,setRoute] = useState('');
     const [soldout,setSoldout]=useState(false);
     const [flight, setFlight] = useState<FlightProps>();
+    const {photo, takePhoto,updatePhoto } = usePhotoGallery();
+
     useEffect(() => {
       const routeId = match.params.id || '';
       const flight = flights?.find(fl => fl._id === routeId);
@@ -34,11 +43,13 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
         setSoldout(flight.soldout);
       }
     }, [match.params.id, flights]);
+
     const handleSave = () => {
       const date=new Date(Date.now());
-      const editedFlight = flight ? { ...flight,route,soldout} : {route,soldout,date};
+      const editedFlight = flight ? { ...flight,route,soldout,version: flight.version+1} : {route,soldout,date,version:1};
       saveFlight && saveFlight(editedFlight).then(() => history.goBack());
     };
+
     return (
       <IonPage>
         <IonHeader>
@@ -58,6 +69,14 @@ const FlightEdit: React.FC<FlightEditProps> = ({ history, match }) => {
           <IonLabel>Soldout:
             <IonInput value={soldout?'true':'false'} onIonChange={e => {if(e.detail.value==='true') setSoldout(true); else setSoldout(false)}}/>
           </IonLabel>
+          <IonCard style={{height:"200px",width:"200px"}}>
+            <IonImg src={photo?.webviewPath}/>
+          </IonCard>
+          <IonFab vertical="bottom" horizontal="center" slot="fixed">
+          <IonFabButton onClick={() => takePhoto()}>
+            <IonIcon icon={camera}></IonIcon>
+          </IonFabButton>
+          </IonFab>
           <IonLoading isOpen={saving} />
           {savingError && (
             <div>{savingError.message || 'Failed to save item'}</div>

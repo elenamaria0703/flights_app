@@ -4,4 +4,5 @@ export interface FlightProps{
     route: string;
     date: Date;
     soldout: boolean;
+    version: number;
 }
