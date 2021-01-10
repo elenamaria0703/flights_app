@@ -6,6 +6,7 @@ import { FlightContext } from './FlightProvider';
 import { RouteComponentProps } from 'react-router';
 import { Plugins } from '@capacitor/core';
 import { useNetwork } from '../network/useNetwork';
+import { createAnimation } from '@ionic/react';
 
 import { FlightProps } from './FlightProps';
 const { Storage } = Plugins;
@@ -21,13 +22,39 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
         location.reload();
         //history.push('/login')
     }
-
     useEffect(() => {
         if(savingError?.message==="Version conflict"){
             setShowAlert(true);
         }
     }, [savingError])
 
+    useEffect(() => {
+       chainAnimations();
+    });
+
+    function chainAnimations() {
+        let elements=[];
+        let animations=[];
+        let i=0;
+        if(flights){
+            while(i<flights.length){
+                elements[i]=document.querySelector('#card_'+flights[i]._id)
+                if(elements[i]){
+                    animations[i]=createAnimation()
+                    .addElement(elements[i])
+                    .duration(2000)
+                    .fromTo('transform', 'rotate(0)', 'rotate(360deg)');
+                }
+                i++;
+            }
+            (async () => {
+                for(i=0;i<flights.length;i++){
+                    await animations[i].play();
+                }
+            })();
+            
+        }
+      }
     useEffect(() => {
         if(networkStatus.connected)
         { 
@@ -50,14 +77,38 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                 
             })();   
         }
+        simpleAnimation();
     }, [networkStatus, saveFlight])
+
+    function simpleAnimation() {
+        const el = document.querySelector('.network_lbl');
+        let col;
+        el?.textContent === " Offline" ? col='red' : col='#5c85d6'
+        console.log(col);
+        if (el) {
+          const animation = createAnimation()
+            .addElement(el)
+            .duration(1000)
+            .iterations(Infinity)
+            .keyframes([
+              { offset: 0, transform: 'scale(3)', opacity: '1' ,color: col},
+              {
+                offset: 1, transform: 'scale(1.5)', opacity: '0.5',color: col
+              }
+            ]);
+            if(col!=='red')
+                animation.direction('alternate');
+          animation.play();
+        }
+    }
+
     return(
         <IonPage>
             <IonHeader>
                 <IonToolbar>
                     <IonTitle>Flights</IonTitle>
                     <IonButton onClick={handleLogOut}>Log out</IonButton>
-                    <IonLabel style={{color:"#5c85d6", font:"Arial",  fontSize:"24px"}}>{networkStatus.connected ?  " Online": " Offline"}</IonLabel>
+                    <IonLabel style={{color:"#5c85d6", font:"Arial",  fontSize:"24px"}} class='network_lbl'>{networkStatus.connected ?  " Online": " Offline"}</IonLabel>
                 </IonToolbar>
             </IonHeader>
             <IonContent>
@@ -99,7 +150,7 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                     <IonList>
                         {flights
                             .filter(flight => flight.route.indexOf(searchFlight) >= 0)
-                            .map(({_id,route,date,soldout,version,filename}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} filename={filename} onEdit={id=>history.push(`/flight/${id}`)}/>)}
+                            .map(({_id,route,date,soldout,version,filename,longitude,latitude}) => <Flight key={_id} _id={_id} route={route} date={date} soldout={soldout} version={version} filename={filename} longitude={longitude} latitude={latitude} onEdit={id=>history.push(`/flight/${id}`)}/>)}
                     </IonList>
                 )}
                 <IonFab vertical="bottom" horizontal="end" slot="fixed">

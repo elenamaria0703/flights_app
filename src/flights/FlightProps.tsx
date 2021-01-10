@@ -6,4 +6,6 @@ export interface FlightProps{
     soldout: boolean;
     version: number;
     filename?: string;
+    longitude?:number;
+    latitude?:number;
 }
