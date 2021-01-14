@@ -9,6 +9,7 @@ import { useNetwork } from '../network/useNetwork';
 import { createAnimation } from '@ionic/react';
 
 import { FlightProps } from './FlightProps';
+import { MyModal } from './MyModal';
 const { Storage } = Plugins;
 
 const FlightList: React.FC<RouteComponentProps>=({history})=>{
@@ -109,6 +110,7 @@ const FlightList: React.FC<RouteComponentProps>=({history})=>{
                     <IonTitle>Flights</IonTitle>
                     <IonButton onClick={handleLogOut}>Log out</IonButton>
                     <IonLabel style={{color:"#5c85d6", font:"Arial",  fontSize:"24px"}} class='network_lbl'>{networkStatus.connected ?  " Online": " Offline"}</IonLabel>
+                    <MyModal />
                 </IonToolbar>
             </IonHeader>
             <IonContent>
